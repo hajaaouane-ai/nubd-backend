@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import pandas as pd
 from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
 
 app = FastAPI(
     title="Nubd AI - Medical Assistant",
@@ -10,7 +10,23 @@ app = FastAPI(
 )
 
 # -----------------------------
-# Load medical data (placeholder)
+# CORS settings
+# -----------------------------
+origins = [
+    "https://nubd-care.com",
+    "http://localhost:5173",  # للتطوير المحلي لاحقًا
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -----------------------------
+# Load medical dataset
 # -----------------------------
 try:
     df = pd.read_csv("medquad_small.csv", encoding="utf-8-sig")
@@ -45,7 +61,7 @@ class SearchRequest(BaseModel):
 
 
 # -----------------------------
-# Simple Arabic search endpoint
+# Simple Arabic keyword search
 # -----------------------------
 @app.post("/search")
 def search(req: SearchRequest):
@@ -61,7 +77,7 @@ def search(req: SearchRequest):
         question_ar = str(row.get("question_ar", "")).strip().lower()
         answer_ar = str(row.get("answer_ar", "")).strip()
 
-        if q in question_ar:
+        if q in question_ar:  # بحث بالكلمات
             results.append({
                 "question": row.get("question_ar", ""),
                 "answer": row.get("answer_ar", ""),
@@ -69,19 +85,4 @@ def search(req: SearchRequest):
                 "row_index": int(idx)
             })
 
-        if len(results) >= req.top_k:
-            break
-
-    return {
-        "query": req.question,
-        "results": results,
-        "count": len(results)
-    }
-
-
-# -----------------------------
-# Run locally (Render uses this)
-# -----------------------------
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+        if len(results) >= req.top
