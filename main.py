@@ -12,11 +12,11 @@ app = FastAPI(
 # Load medical data (placeholder)
 # -----------------------------
 try:
-    df = pd.read_csv("medquad_full_with_ar.csv", encoding="utf-8-sig")
+    df = pd.read_csv("medquad_small.csv", encoding="utf-8-sig")
     print(f"Loaded dataset with {len(df)} rows.")
-except:
+except Exception as e:
     df = None
-    print("⚠️ Dataset not found. Upload medquad_full_with_ar.csv to Render later.")
+    print("⚠️ Dataset not found or failed to load:", e)
 
 
 # -----------------------------
