@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import pandas as pd
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Nubd AI - Medical Assistant",
