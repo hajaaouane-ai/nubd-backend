@@ -1,3 +1,7 @@
+import smtplib
+import ssl
+from email.message import EmailMessage
+from pydantic import EmailStr
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
