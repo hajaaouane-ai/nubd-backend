@@ -191,6 +191,65 @@ async def ask(req: AskRequest):
             detail="حدث خطأ أثناء الاتصال بنموذج الذكاء الاصطناعي."
         )
 
+# =============================
+# Contact Form - Send Email
+# =============================
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import smtplib
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    subject: str
+    message: str
+
+@app.post("/contact")
+def send_contact_email(req: ContactRequest):
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    contact_to = os.getenv("CONTACT_TO")
+
+    if not all([smtp_host, smtp_port, smtp_user, smtp_pass, contact_to]):
+        raise HTTPException(
+            status_code=500,
+            detail="SMTP settings missing on the server."
+        )
+
+    try:
+        # إعداد الرسالة
+        msg = MIMEMultipart()
+        msg["From"] = smtp_user
+        msg["To"] = contact_to
+        msg["Subject"] = f"رسالة جديدة من نموذج التواصل - {req.subject}"
+
+        body = f"""
+        الاسم: {req.name}
+        البريد: {req.email}
+        -------------------------
+        الرسالة:
+        {req.message}
+        """
+
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        # الإرسال عبر Gmail SMTP
+        server = smtplib.SMTP(smtp_host, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+        server.quit()
+
+        return {"status": "success", "message": "تم إرسال رسالتك بنجاح 🎉"}
+
+    except Exception as e:
+        print("Email Error:", e)
+        raise HTTPException(
+            status_code=500,
+            detail="تعذر إرسال الرسالة. حاول مرة أخرى."
+        )
 
 # ============================================================
 # 🏃 تشغيل محلي فقط (ليس في Render)
