@@ -2,4 +2,6 @@ fastapi
 uvicorn[standard]
 pandas
 openai
+pydantic
+email-validator
 python-dotenv
