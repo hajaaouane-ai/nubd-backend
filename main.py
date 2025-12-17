@@ -27,7 +27,8 @@ NUBD_API_KEY = os.getenv("NUBD_API_KEY", "").strip()
 # CORS (restrict in production)
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "https://nubd-care.com,https://www.nubd-care.com,http://localhost:5173,http://localhost:3000",
+    "https://nubd-care.com,https://www.nubd-care.com,http://localhost:5173,http://localhost:5176,http://localhost:5177,http://localhost:3000",
+).split(",")
 ).split(",")
 
 # Basic rate limiting (in-memory, good enough for beta)
