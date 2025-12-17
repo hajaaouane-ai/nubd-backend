@@ -21,7 +21,7 @@ APP_VERSION = "0.5.0"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 
-# Optional API key protection (recommended for /ask)
+# Optional API key protection (recommended for /search)
 NUBD_API_KEY = os.getenv("NUBD_API_KEY", "").strip()
 
 # CORS (restrict in production)
@@ -301,7 +301,7 @@ def health():
 def search(req: SearchRequest, request: Request, x_api_key: Optional[str] = Header(default=None)):
     ip = get_client_ip(request)
     rate_limit(ip)
-    require_api_key(x_api_key)
+    require_api_key(x_api_key)  # يبقى محمي
 
     q = (req.question or "").strip()
     if not q:
@@ -325,7 +325,9 @@ def search(req: SearchRequest, request: Request, x_api_key: Optional[str] = Head
 async def ask(req: AskRequest, request: Request, x_api_key: Optional[str] = Header(default=None)):
     ip = get_client_ip(request)
     rate_limit(ip)
-    require_api_key(x_api_key)
+
+    # ✅ (COACH FIX) لا نطلب API Key هنا لكي يعمل الموقع مباشرة
+    # require_api_key(x_api_key)
 
     if client is None:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is missing on the server.")
@@ -457,3 +459,7 @@ def send_contact_email(req: ContactRequest, request: Request):
     except Exception as e:
         print("Email Error:", e)
         raise HTTPException(status_code=500, detail="تعذر إرسال الرسالة حالياً.")
+
+# ============================
+# ✅ COACH STAMP: Nubd AI v0.5.0 - Fix /ask auth loop
+# ============================
