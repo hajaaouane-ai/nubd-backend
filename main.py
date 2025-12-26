@@ -27,8 +27,9 @@ NUBD_API_KEY = os.getenv("NUBD_API_KEY", "").strip()
 # CORS (restrict in production)
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "https://nubd-care.com,https://www.nubd-care.com,http://localhost:5173,http://localhost:5176,http://localhost:5177,http://localhost:3000",
-).split(",")
+    "https://nubd-care.com,https://www.nubd-care.com,"
+    "http://localhost:5173,http://localhost:5176,"
+    "http://localhost:5177,http://localhost:3000",
 ).split(",")
 
 # Basic rate limiting (in-memory, good enough for beta)
@@ -71,6 +72,7 @@ if not OPENAI_API_KEY:
 df_ar: Optional[pd.DataFrame] = None
 df_en: Optional[pd.DataFrame] = None
 
+
 def _try_load_csv(path: str) -> Optional[pd.DataFrame]:
     try:
         if os.path.exists(path):
@@ -80,6 +82,7 @@ def _try_load_csv(path: str) -> Optional[pd.DataFrame]:
     except Exception as e:
         print(f"⚠️ Failed loading {path}: {e}")
     return None
+
 
 def load_datasets():
     global df_ar, df_en
@@ -94,6 +97,7 @@ def load_datasets():
     # English dataset
     df_en = _try_load_csv("medquad.csv")
 
+
 load_datasets()
 
 # =========================================================
@@ -106,22 +110,30 @@ def get_client_ip(request: Request) -> str:
         return xff.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
+
 def rate_limit(ip: str):
     now = time.time()
     window_start = now - 60
     times = _rate_bucket.get(ip, [])
     times = [t for t in times if t >= window_start]
     if len(times) >= RATE_LIMIT_PER_MINUTE:
-        raise HTTPException(status_code=429, detail="Too many requests. Please wait a minute and try again.")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please wait a minute and try again.",
+        )
     times.append(now)
     _rate_bucket[ip] = times
+
 
 def require_api_key(x_api_key: Optional[str]):
     # If you did not set NUBD_API_KEY in env => no auth
     if not NUBD_API_KEY:
         return
     if not x_api_key or x_api_key.strip() != NUBD_API_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized (missing/invalid API key).")
+        raise HTTPException(
+            status_code=401, detail="Unauthorized (missing/invalid API key)."
+        )
+
 
 # =========================================================
 #                 TEXT NORMALIZATION + REDACTION
@@ -131,6 +143,7 @@ _AR_TATWEEL = "\u0640"
 
 EMAIL_RE = re.compile(r"[\w\.-]+@[\w\.-]+\.\w+")
 PHONE_RE = re.compile(r"(\+?\d[\d\-\s]{7,}\d)")
+
 
 def normalize_ar(text: str) -> str:
     if not text:
@@ -144,12 +157,14 @@ def normalize_ar(text: str) -> str:
     t = re.sub(r"\s+", " ", t)
     return t
 
+
 def normalize_en(text: str) -> str:
     if not text:
         return ""
     t = str(text).strip().lower()
     t = re.sub(r"\s+", " ", t)
     return t
+
 
 def redact_pii(text: str) -> str:
     # simple redaction (do NOT store/send PII)
@@ -159,19 +174,34 @@ def redact_pii(text: str) -> str:
     t = PHONE_RE.sub("[PHONE]", t)
     return t
 
+
 # =========================================================
 #                 EMERGENCY FILTER
 # =========================================================
 def is_emergency_ar(text: str) -> bool:
     t = normalize_ar(text)
     emergency_keywords = [
-        "الم شديد في الصدر", "الم الصدر", "ضيق تنفس", "اختناق",
-        "اغماء", "فقدان الوعي", "نزيف شديد", "نزيف قوي",
-        "ضعف مفاجئ", "شلل", "تلعثم", "صعوبه كلام",
-        "صداع مفاجئ شديد", "الم شديد في الراس",
-        "تشنجات", "زرقة", "افكار انتحار", "ايذاء النفس"
+        "الم شديد في الصدر",
+        "الم الصدر",
+        "ضيق تنفس",
+        "اختناق",
+        "اغماء",
+        "فقدان الوعي",
+        "نزيف شديد",
+        "نزيف قوي",
+        "ضعف مفاجئ",
+        "شلل",
+        "تلعثم",
+        "صعوبه كلام",
+        "صداع مفاجئ شديد",
+        "الم شديد في الراس",
+        "تشنجات",
+        "زرقة",
+        "افكار انتحار",
+        "ايذاء النفس",
     ]
     return any(k in t for k in emergency_keywords)
+
 
 # =========================================================
 #                 SEARCH (RAG RETRIEVAL)
@@ -184,6 +214,7 @@ def _score_overlap(query_norm: str, row_norm: str) -> float:
     overlap = len(q_tokens.intersection(r_tokens))
     boost = 5 if query_norm in row_norm else 0
     return float(boost + overlap)
+
 
 def search_ar_dataset(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     if df_ar is None or df_ar.empty:
@@ -203,15 +234,18 @@ def search_ar_dataset(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     results = []
     for score, idx in scored[:top_k]:
         row = df_ar.iloc[idx]
-        results.append({
-            "question": row.get("question_ar", ""),
-            "answer": row.get("answer_ar", ""),
-            "source": row.get("source", ""),
-            "focus_area": row.get("focus_area", ""),
-            "row_index": int(idx),
-            "score": float(score),
-        })
+        results.append(
+            {
+                "question": row.get("question_ar", ""),
+                "answer": row.get("answer_ar", ""),
+                "source": row.get("source", ""),
+                "focus_area": row.get("focus_area", ""),
+                "row_index": int(idx),
+                "score": float(score),
+            }
+        )
     return results
+
 
 def search_en_dataset(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     if df_en is None or df_en.empty:
@@ -231,15 +265,18 @@ def search_en_dataset(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     results = []
     for score, idx in scored[:top_k]:
         row = df_en.iloc[idx]
-        results.append({
-            "question": row.get("question", ""),
-            "answer": row.get("answer", ""),
-            "source": row.get("source", ""),
-            "focus_area": row.get("focus_area", ""),
-            "row_index": int(idx),
-            "score": float(score),
-        })
+        results.append(
+            {
+                "question": row.get("question", ""),
+                "answer": row.get("answer", ""),
+                "source": row.get("source", ""),
+                "focus_area": row.get("focus_area", ""),
+                "row_index": int(idx),
+                "score": float(score),
+            }
+        )
     return results
+
 
 def build_rag_context(results: List[Dict[str, Any]]) -> str:
     if not results:
@@ -253,6 +290,7 @@ def build_rag_context(results: List[Dict[str, Any]]) -> str:
         )
     return "\n".join(lines)
 
+
 # =========================================================
 #                    MODELS
 # =========================================================
@@ -260,13 +298,16 @@ class SearchRequest(BaseModel):
     question: str
     top_k: int = 3
 
+
 class AskRequest(BaseModel):
     question: str
+
 
 class AskResponse(BaseModel):
     answer: str
     safety_notice: str
     sources_used: List[Dict[str, Any]] = []
+
 
 class ContactRequest(BaseModel):
     name: str
@@ -274,16 +315,23 @@ class ContactRequest(BaseModel):
     subject: str
     message: str
 
+
 # =========================================================
 #                    ROOT & HEALTH
 # =========================================================
 @app.get("/")
 def root():
-    return {"message": "Nubd AI Backend is running 🚀", "beta": True, "version": APP_VERSION}
+    return {
+        "message": "Nubd AI Backend is running 🚀",
+        "beta": True,
+        "version": APP_VERSION,
+    }
+
 
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
+
 
 @app.get("/health")
 def health():
@@ -295,11 +343,14 @@ def health():
         "version": APP_VERSION,
     }
 
+
 # =========================================================
 #                    SEARCH ENDPOINT
 # =========================================================
 @app.post("/search")
-def search(req: SearchRequest, request: Request, x_api_key: Optional[str] = Header(default=None)):
+def search(
+    req: SearchRequest, request: Request, x_api_key: Optional[str] = Header(default=None)
+):
     ip = get_client_ip(request)
     rate_limit(ip)
     require_api_key(x_api_key)  # يبقى محمي
@@ -314,16 +365,29 @@ def search(req: SearchRequest, request: Request, x_api_key: Optional[str] = Head
 
     ar_results = search_ar_dataset(q, top_k=top_k)
     if ar_results:
-        return {"query": q, "lang": "ar", "results": ar_results, "count": len(ar_results)}
+        return {
+            "query": q,
+            "lang": "ar",
+            "results": ar_results,
+            "count": len(ar_results),
+        }
 
     en_results = search_en_dataset(q, top_k=top_k)
-    return {"query": q, "lang": "en", "results": en_results, "count": len(en_results)}
+    return {
+        "query": q,
+        "lang": "en",
+        "results": en_results,
+        "count": len(en_results),
+    }
+
 
 # =========================================================
 #                    ASK ENDPOINT (RAG)
 # =========================================================
 @app.post("/ask", response_model=AskResponse)
-async def ask(req: AskRequest, request: Request, x_api_key: Optional[str] = Header(default=None)):
+async def ask(
+    req: AskRequest, request: Request, x_api_key: Optional[str] = Header(default=None)
+):
     ip = get_client_ip(request)
     rate_limit(ip)
 
@@ -331,7 +395,10 @@ async def ask(req: AskRequest, request: Request, x_api_key: Optional[str] = Head
     # require_api_key(x_api_key)
 
     if client is None:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is missing on the server.")
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is missing on the server.",
+        )
 
     user_question = (req.question or "").strip()
     if not user_question:
@@ -351,7 +418,7 @@ async def ask(req: AskRequest, request: Request, x_api_key: Optional[str] = Head
                 "ولا تنتظر ردًا عبر الإنترنت."
             ),
             safety_notice=SAFETY_NOTICE,
-            sources_used=[]
+            sources_used=[],
         )
 
     # 2) Retrieve (prefer Arabic)
@@ -403,12 +470,16 @@ async def ask(req: AskRequest, request: Request, x_api_key: Optional[str] = Head
         return AskResponse(
             answer=answer,
             safety_notice=SAFETY_NOTICE,
-            sources_used=results
+            sources_used=results,
         )
 
     except Exception as e:
         print("OpenAI Error:", e)
-        raise HTTPException(status_code=500, detail="خطأ أثناء الاتصال بنموذج الذكاء الاصطناعي.")
+        raise HTTPException(
+            status_code=500,
+            detail="خطأ أثناء الاتصال بنموذج الذكاء الاصطناعي.",
+        )
+
 
 # =========================================================
 #                    CONTACT ENDPOINT
@@ -425,7 +496,9 @@ def send_contact_email(req: ContactRequest, request: Request):
     contact_to = os.getenv("CONTACT_TO")
 
     if not all([smtp_host, smtp_user, smtp_pass, contact_to]):
-        raise HTTPException(status_code=500, detail="SMTP settings missing on server.")
+        raise HTTPException(
+            status_code=500, detail="SMTP settings missing on server."
+        )
 
     header_note = (
         "ملاحظة: نموذج التواصل مخصص للملاحظات التقنية/الاقتراحات فقط، "
@@ -459,7 +532,10 @@ def send_contact_email(req: ContactRequest, request: Request):
 
     except Exception as e:
         print("Email Error:", e)
-        raise HTTPException(status_code=500, detail="تعذر إرسال الرسالة حالياً.")
+        raise HTTPException(
+            status_code=500,
+            detail="تعذر إرسال الرسالة حالياً.",
+        )
 
 # ============================
 # ✅ COACH STAMP: Nubd AI v0.5.0 - Fix /ask auth loop
